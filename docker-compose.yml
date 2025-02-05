@@ -1,0 +1,13 @@
+services:
+  app:
+    image: "kianapp:v0.1"
+    build:
+      context: .
+      dockerfile: dockerfileecho $?
+    environment:
+      - INPUT_DIR=/data/input
+      - OUTPUT_DIR=/data/output
+    volumes:
+      - ./data/input:/data/input:ro
+      - ./data/output:/data/output
+    mem_limit: 20g
