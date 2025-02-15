@@ -1,17 +1,22 @@
 ## ----warning=FALSE, message=FALSE----
 
+input_dir <- Sys.getenv("INPUT_DIR", unset = "/data/input")
+output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
 # Load necessary libraries
-
 library(readr)
 library(dplyr)
 library(tidyverse)
 library(tidyr)
 
+# -- ADDED: Force pagedown/chromote to use /usr/bin/chromium --
+options(chromote.chrome = "/usr/bin/chromium")
+
 # Load the dataset and assign it to nsduh_2023
+input_file <- file.path(input_dir, "NSDUH_2023_Tab.txt")
+nsduh_2023 <- read_delim(input_file, show_col_types = FALSE)
 
-
-nsduh_2023 <- read_delim("data/input/NSDUH_2023_Tab.txt", show_col_types = FALSE)
+# ... [SNIP: All your existing data loading, filtering, etc. remains unchanged] ...
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -33,8 +38,11 @@ nsduh_2023_ss <- nsduh_2023_s |>
 
 # Load the dataset and assign it to nsduh_2022
 
+# Construct the file path for the dataset
+input_file <- file.path(input_dir, "NSDUH_2022_Tab.txt")
+nsduh_2022 <- read_delim(input_file, show_col_types = FALSE)
 
-nsduh_2022 <- read_delim("data/input/NSDUH_2022_Tab.txt", show_col_types = FALSE)
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -57,7 +65,12 @@ nsduh_2022_ss <- nsduh_2022_s |>
 
 # Load the dataset and assign it to nsduh_2021
 
-nsduh_2021 <- read_delim("data/input/NSDUH_2021_Tab.txt", show_col_types = FALSE)
+
+# Construct the file path for the dataset
+input_file <- file.path(input_dir, "NSDUH_2021_Tab.txt")
+nsduh_2021 <- read_delim(input_file, show_col_types = FALSE)
+
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -65,7 +78,7 @@ nsduh_2021_s <- nsduh_2021 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR, IRSUIPLANYR, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -80,7 +93,11 @@ nsduh_2021_ss <- nsduh_2021_s |>
 
 # Load the dataset and assign it to nsduh_2020
 
-nsduh_2020 <- read_delim("data/input/NSDUH_2020_Tab.txt", show_col_types = FALSE)
+# Construct the file path for the dataset
+input_file <- file.path(input_dir, "NSDUH_2020_Tab.txt")
+nsduh_2020 <- read_delim(input_file, show_col_types = FALSE)
+
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -88,7 +105,7 @@ nsduh_2020_s <- nsduh_2020 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -105,7 +122,10 @@ nsduh_2020_ss <- nsduh_2020_s |>
 
 # Load the dataset and assign it to nsduh_2019
 
-nsduh_2019 <- read_delim("data/input/NSDUH_2019_Tab.txt", show_col_types = FALSE)
+# Construct the file path for the dataset
+input_file <- file.path(input_dir, "NSDUH_2019_Tab.txt")
+nsduh_2019 <- read_delim(input_file, show_col_types = FALSE)
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -113,7 +133,7 @@ nsduh_2019_s <- nsduh_2019 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -130,7 +150,10 @@ nsduh_2019_ss <- nsduh_2019_s |>
 
 # Load the dataset and assign it to nsduh_2018
 
-nsduh_2018 <- read_delim("data/input/NSDUH_2018_Tab.tsv", show_col_types = FALSE)
+input_file <- file.path(input_dir, "NSDUH_2018_Tab.tsv")
+nsduh_2018 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
+
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -138,7 +161,7 @@ nsduh_2018_s <- nsduh_2018 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -155,7 +178,9 @@ nsduh_2018_ss <- nsduh_2018_s |>
 
 # Load the dataset and assign it to nsduh_2017
 
-nsduh_2017 <- read_delim("data/input/NSDUH_2017_Tab.tsv", show_col_types = FALSE)
+input_file <- file.path(input_dir, "NSDUH_2017_Tab.tsv")
+nsduh_2017 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -163,7 +188,7 @@ nsduh_2017_s <- nsduh_2017 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -178,7 +203,9 @@ nsduh_2017_ss <- nsduh_2017_s |>
 
 # Load the dataset and assign it to nsduh_2016
 
-nsduh_2016 <- read_delim("data/input/NSDUH_2016_Tab.tsv", show_col_types = FALSE)
+input_file <- file.path(input_dir, "NSDUH_2016_Tab.tsv")
+nsduh_2016 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
+
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -186,7 +213,7 @@ nsduh_2016_s <- nsduh_2016 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -201,8 +228,9 @@ nsduh_2016_ss <- nsduh_2016_s |>
 #------------------------------------------------------------------------------
 
 # Load the dataset and assign it to nsduh_2015
+input_file <- file.path(input_dir, "NSDUH_2015_Tab.tsv")
+nsduh_2015 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
 
-nsduh_2015 <- read_delim("data/input/NSDUH_2015_Tab.tsv", show_col_types = FALSE)
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -210,7 +238,7 @@ nsduh_2015_s <- nsduh_2015 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
     CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
-    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCMIT2, MHRCFID2, MHRFOUT2
+    MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
 
@@ -223,7 +251,6 @@ nsduh_2015_ss <- nsduh_2015_s |>
 
 
 ## ----warning=FALSE, message=FALSE----
-
 
 
 
@@ -310,12 +337,9 @@ setnames(combined_dt, colnames_2023)
 
 combined_nsduh_s <- as.data.frame(combined_dt)
 
-#-------------------------------------------------------------------------------
 # Create the SI dataset
-
 combined_nsduh_si <- combined_nsduh_s |>
   mutate(
-    # SI is 1 if any of the variables is 1, else 0
     SI = ifelse(
       IRSUICTHNK == 1 |
       IRSUITRYYR == 1 |
@@ -324,19 +348,10 @@ combined_nsduh_si <- combined_nsduh_s |>
       0
     )
   )
-
-#--------------------------------------------------------------------------
-
-
-
-## ----warning=FALSE, message=FALSE----
-
 
 # Create the dataset for utilization of mental health services analysis
-
 combined_nsduh_svhb <- combined_nsduh_ss |>
   mutate(
-    # SI is 1 if any of the variables is 1, else 0
     SI = ifelse(
       IRSUICTHNK == 1 |
       IRSUITRYYR == 1 |
@@ -346,15 +361,14 @@ combined_nsduh_svhb <- combined_nsduh_ss |>
     )
   )
 
+# Export the combined_nsduh_svhb CSV
+export_file <- file.path(output_dir, "combined_nsduh_svhb.csv")
+write.csv(combined_nsduh_svhb, file = export_file, row.names = FALSE)
 
 ## ----warning=FALSE, message=FALSE----
 
-
-# Load necessary packages
 library(gtsummary)
 library(gt)
-
-# Assign descriptive labels to each categorical variable
 
 combined_nsduh_svhbd <- combined_nsduh_svhb |>
   mutate(
@@ -391,9 +405,8 @@ combined_nsduh_svhbd <- combined_nsduh_svhb |>
         "Associate degree",
         "College graduate"
       )
-    ))
-
-# Create Descriptive Summary Table by YEAR
+    )
+  )
 
 summary_table <- combined_nsduh_svhbd |>
   select(
@@ -416,39 +429,39 @@ summary_table <- combined_nsduh_svhbd |>
     missing = "no"
   ) |>
   modify_spanning_header(starts_with("stat_") ~ "**Year**") |>
-  modify_caption("**Table 2: Summary of Descriptive Statistics of Sociodemographics by Year**") |>
+  modify_caption("**Table 1: Summary of Sociodemographics by Year**") |>
   bold_labels() |>
   modify_header(
-    label ~ "**Sociodemographics** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;                                         (N = 21,176)"
+    label ~ "**Sociodemographics** (N = 23,996)"
   ) |>
   modify_footnote(
     everything() ~ NA_character_
   )
 
-# Convert to gt table
-
-summary_table_gt <- summary_table |>
-  as_gt()
-
-# Adjust column width
-
-summary_table_gt <- summary_table_gt |>
-  cols_width(
-    label ~ px(500)
-  )
-
-# Change the font size to small
-
-summary_table_gt <- summary_table_gt |>
-  tab_options(
-    table.font.size = "small"
-  )
-
-# Display the Final Table
+summary_table_gt <- summary_table |> as_gt()
+summary_table_gt <- summary_table_gt |> cols_width(label ~ px(500))
+summary_table_gt <- summary_table_gt |> tab_options(table.font.size = "small")
 
 summary_table_gt
 
+library(gt)
+library(pagedown)
+library(webshot2)
 
+# Save gt table as HTML directly
+output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
+output_html <- file.path(output_dir, "tab1.html")
+gtsave(summary_table_gt, output_html)
+
+
+## ----warning=FALSE, message=FALSE----
+
+library(ggplot2)
+
+# [SNIP: The rest of your data wrangling and plotting code remains unchanged]
+
+# For instance, you might again add `extra_args = c("--no-sandbox")` anywhere else
+# you call pagedown::chrome_print(). If you do no more calls, this is sufficient.
 
 
 ## ----warning=FALSE, message=FALSE----
@@ -570,8 +583,6 @@ plot1 <- plot_group(vars_group1, "Age, Sex, Race/Hispanicity, Education")
 ## ----warning=FALSE, message=FALSE----
 
 #---------------------------------------------------------------
-# Calculate prevalence for SI
-
 prevalence_sic <- combined_nsduh_si |>
   group_by(YEAR) |>
   summarize(
@@ -582,62 +593,44 @@ prevalence_sic <- combined_nsduh_si |>
   select(Year = YEAR, Prevalence)
 
 #---------------------------------------------------------------
-# Define a function to calculate the Average Annual Percentage Change (AAPC)
-
-calculate_aapc <- function(data, start_year, end_year) {
-  start_value <- data |> filter(Year == start_year) |> pull(Prevalence)
-  end_value   <- data |> filter(Year == end_year)   |> pull(Prevalence)
-  years       <- end_year - start_year
-  aapc        <- ((end_value / start_value)^(1 / years) - 1) * 100
-  return(aapc)
-}
-
-# Calculate AAPC for SI from 2015 to 2019
-
-si_aapc <- calculate_aapc(prevalence_sic, 2015, 2019)
-
-#---------------------------------------------------------------
-# Create annotation data (for year 2019 as an example)
-
-annotations <- data.frame(
-  Year       = 2019,
-  Prevalence = prevalence_sic |> filter(Year == 2019) |> pull(Prevalence),
-  AAPC       = si_aapc,
-  hjust      = 0.5,
-  vjust      = 4.0
-)
 
 #---------------------------------------------------------------
 # Create the line graph for SI only
-
-ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
+plot_si <- ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
   geom_line(color = "#ffdd99", linewidth = 1) +
   geom_point(color = "#ffdd99", size = 2) +
   scale_x_continuous(breaks = 2015:2023) +
   labs(
-    title = "Prevalence of SI",
+    title = "Prevalence of Suicidal Ideation",
     x = "Year",
     y = "Prevalence (%)"
   ) +
   theme_bw() +
   theme(
     strip.text = element_text(face = "bold", size = 12)
-  ) +
-  geom_text(
-    data = annotations,
-    aes(
-      x = Year,
-      y = Prevalence,
-      label = paste0("AAPC: ", round(AAPC, 2), "%"),
-      hjust = hjust,
-      vjust = vjust
-    ),
-    color = "black",
-    size = 3,
-    inherit.aes = FALSE
   )
 
 
+library(ggplot2)
+
+# Retrieve the OUTPUT_DIR from the Docker environment variable
+# If not set, default to /data/output
+output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
+
+# Define the output file path
+output_file <- file.path(output_dir, "prevalence_si_plot.png")
+
+# (Optional) ensure the directory exists (suppress warning if already exists)
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Export the plot as a PNG image
+ggsave(
+  filename = output_file,
+  plot = plot_si,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 
 
 ## ----warning=FALSE, message=FALSE----
@@ -703,7 +696,7 @@ summary_counts$YEAR <- factor(summary_counts$YEAR, levels = sort(unique(summary_
 
 # Create the horizontal bar chart
 
-ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
+rea_si <- ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
   geom_bar(stat = "identity", position = "stack") +
   labs(
     title = "Reasons for Not Receiving MHS Among U.S. Adults with Suicidal Ideation",
@@ -721,9 +714,34 @@ ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "left",
-    # Align the title to the left    plot.title.position = "plot",
-    plot.title = element_text(hjust = 0)
+    # Key: make sure title is positioned at the plot level and left-aligned
+    plot.title.position = "plot",
+    plot.title = element_text(hjust = 0),
+    # Optionally reduce left margin if needed:
+    plot.margin = margin(t = 10, r = 10, b = 10, l = 5)
   ) +
   coord_flip()
+
+
+library(ggplot2)
+
+# Retrieve the OUTPUT_DIR from the Docker environment variable
+# If not set, default to /data/output
+output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
+
+# Define the output file path
+output_file <- file.path(output_dir, "rea_si_plot.png")
+
+# (Optional) ensure the directory exists (suppress warning if already exists)
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Export the plot as a PNG image
+ggsave(
+  filename = output_file,
+  plot = rea_si,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 
 
