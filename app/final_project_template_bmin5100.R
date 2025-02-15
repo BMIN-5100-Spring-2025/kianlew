@@ -1,4 +1,3 @@
-## ----warning=FALSE, message=FALSE----
 
 input_dir <- Sys.getenv("INPUT_DIR", unset = "/data/input")
 output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
@@ -9,14 +8,12 @@ library(dplyr)
 library(tidyverse)
 library(tidyr)
 
-# -- ADDED: Force pagedown/chromote to use /usr/bin/chromium --
 options(chromote.chrome = "/usr/bin/chromium")
 
 # Load the dataset and assign it to nsduh_2023
 input_file <- file.path(input_dir, "NSDUH_2023_Tab.txt")
 nsduh_2023 <- read_delim(input_file, show_col_types = FALSE)
 
-# ... [SNIP: All your existing data loading, filtering, etc. remains unchanged] ...
 
 # Filter rows where the age group is 18-64 and variables of interest
 
@@ -250,8 +247,6 @@ nsduh_2015_ss <- nsduh_2015_s |>
   )
 
 
-## ----warning=FALSE, message=FALSE----
-
 
 
 library(data.table)
@@ -448,141 +443,13 @@ library(gt)
 library(pagedown)
 library(webshot2)
 
-# Save gt table as HTML directly
 output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 output_html <- file.path(output_dir, "tab1.html")
 gtsave(summary_table_gt, output_html)
 
 
-## ----warning=FALSE, message=FALSE----
-
-library(ggplot2)
-
-# [SNIP: The rest of your data wrangling and plotting code remains unchanged]
-
-# For instance, you might again add `extra_args = c("--no-sandbox")` anywhere else
-# you call pagedown::chrome_print(). If you do no more calls, this is sufficient.
 
 
-## ----warning=FALSE, message=FALSE----
-
-
-library(ggplot2)
-
-# Assign descriptive labels to each categorical variable
-
-combined_nsduh_svhbd <- combined_nsduh_svhb |>
-  mutate(
-    CATAG6 = factor(
-      CATAG6,
-      levels = 2:5,
-      labels = c(
-        "18-25 Years Old",
-        "26-34 Years Old",
-        "35-49 Years Old",
-        "50-64 Years Old"
-      )
-    ),
-    IRSEX = factor(IRSEX, levels = 1:2, labels = c("Male", "Female")),
-    NEWRACE2 = factor(
-      NEWRACE2,
-      levels = 1:7,
-      labels = c(
-        "White",
-        "Black/African American",
-        "Native American/Alaskan Native",
-        "Native Hawaiian/Pacific Islander",
-        "Asian",
-        "Mixed",
-        "Hispanic"
-      )
-    ),
-    EDUHIGHCAT = factor(
-      EDUHIGHCAT,
-      levels = 1:4,
-      labels = c(
-        "< High school",
-        "High school",
-        "Associate degree",
-        "College graduate"
-      )
-    )
-  )
-
-# Define variable labels
-
-variable_labels <- c(
-  CATAG6 = "Age",
-  IRSEX = "Sex",
-  NEWRACE2 = "Race/Hispanicity",
-  EDUHIGHCAT = "Educational Attainment"
-)
-
-# Pivot data from wide to long
-
-data_long <- combined_nsduh_svhbd |>
-  select(
-    YEAR,
-    CATAG6,
-    IRSEX,
-    NEWRACE2,
-    EDUHIGHCAT
-  ) |>
-  pivot_longer(
-    cols = -YEAR,
-    names_to = "Variable",
-    values_to = "Value"
-  )
-
-# Summarize counts and percentages
-
-summary_data <- data_long |>
-  group_by(YEAR, Variable, Value) |>
-  tally() |>
-  group_by(YEAR, Variable) |>
-  mutate(Percentage = n / sum(n) * 100) |>
-  ungroup()
-
-# Divide variables into four groups
-
-vars_group1 <- c("CATAG6", "IRSEX", "NEWRACE2", "EDUHIGHCAT")
-
-# Create a custom plotting function
-
-plot_group <- function(var_list, title) {
-  data_subset <- summary_data |>
-    filter(Variable %in% var_list)
-
-  ggplot(data_subset, aes(x = factor(YEAR), y = Percentage, fill = Value)) +
-    geom_bar(stat = "identity", position = position_dodge()) +
-    facet_wrap(~ Variable, labeller = as_labeller(variable_labels), scales = "free_y") +
-    labs(
-      x = "Year",
-      y = "Percentage",
-      title = title
-    ) +
-    theme_minimal() +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      legend.title = element_blank(),
-      legend.text = element_text(size = 7),
-      legend.key.size = unit(0.4, "cm"),
-      legend.spacing.x = unit(0.1, "cm"),
-      strip.text = element_text(size = 8),
-      plot.title = element_text(size = 10, face = "bold")
-    )
-}
-
-# Generate the four separate plots
-
-plot1 <- plot_group(vars_group1, "Age, Sex, Race/Hispanicity, Education")
-
-# Display the plotsplot1
-
-
-## ----warning=FALSE, message=FALSE----
-
-#---------------------------------------------------------------
 prevalence_sic <- combined_nsduh_si |>
   group_by(YEAR) |>
   summarize(
@@ -592,10 +459,8 @@ prevalence_sic <- combined_nsduh_si |>
   ) |>
   select(Year = YEAR, Prevalence)
 
-#---------------------------------------------------------------
 
-#---------------------------------------------------------------
-# Create the line graph for SI only
+# Create the line graph for SI
 plot_si <- ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
   geom_line(color = "#ffdd99", linewidth = 1) +
   geom_point(color = "#ffdd99", size = 2) +
@@ -613,14 +478,12 @@ plot_si <- ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
 
 library(ggplot2)
 
-# Retrieve the OUTPUT_DIR from the Docker environment variable
-# If not set, default to /data/output
+
 output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
 # Define the output file path
 output_file <- file.path(output_dir, "prevalence_si_plot.png")
 
-# (Optional) ensure the directory exists (suppress warning if already exists)
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Export the plot as a PNG image
@@ -633,14 +496,13 @@ ggsave(
 )
 
 
-## ----warning=FALSE, message=FALSE----
 
 
 library(scales)
 
 
 
-# List of variables to test (updated)
+# List of variables to test
 
 variables_of_interest <- c(
   "MHNTENFCV", "MHNTFFLKE", "MHNTPROBS", "MHNTTIME", "MHNTINSCV",
@@ -648,7 +510,7 @@ variables_of_interest <- c(
   "MHNTCONSQ", "MHNTPRIV", "MHNTPTHNK"
 )
 
-# Map of variable codes to descriptive labels (updated)
+# Map of variable codes to descriptive labels
 
 variable_labels <- c(
   MHNTENFCV = "Insurance coverage not enough",
@@ -666,9 +528,8 @@ variable_labels <- c(
   MHNTPTHNK = "Worry about social stigma"
 )
 
-#-------------------------------------------------------------------------------
 
-# Filter dataset to include only SI and the YEAR column
+# Filter dataset to include SI and the YEAR column
 
 data_filtered <- combined_nsduh_svhb |>
   filter(SI == 1) |>
@@ -725,14 +586,12 @@ rea_si <- ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
 
 library(ggplot2)
 
-# Retrieve the OUTPUT_DIR from the Docker environment variable
-# If not set, default to /data/output
+
 output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
 # Define the output file path
 output_file <- file.path(output_dir, "rea_si_plot.png")
 
-# (Optional) ensure the directory exists (suppress warning if already exists)
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Export the plot as a PNG image
