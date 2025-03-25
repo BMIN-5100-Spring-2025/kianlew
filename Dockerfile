@@ -30,7 +30,8 @@ RUN Rscript -e "install.packages(c( \
     'gtsummary', \
     'gt', \
     'ggplot2', \
-    'scales' \
+    'scales', \
+    'aws.s3' \
   ), repos='https://cran.rstudio.com/')"
 
 # 4) Copy your R scripts (or entire app) to the container
