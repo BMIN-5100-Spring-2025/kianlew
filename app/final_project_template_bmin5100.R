@@ -1,12 +1,7 @@
-###############################################################################
-# STEP 1 & 2: Basic Setup (Libraries, environment variables)
-###############################################################################
 
-# Make sure these packages are installed:
-# install.packages(c("aws.s3", "readr", "dplyr", "tidyverse",
-#                    "data.table", "gtsummary", "gt", "pagedown", "webshot2"))
 
-# Load necessary libraries
+
+
 library(readr)
 library(dplyr)
 library(tidyverse)
@@ -19,28 +14,21 @@ library(webshot2)
 library(ggplot2)
 
 # Environment variables to control run mode and S3
-run_mode <- Sys.getenv("RUN_MODE", "local")         # "local" or "fargate"
-bucket   <- Sys.getenv("bmin5100-kianlew", "my-bucket")
+run_mode <- Sys.getenv("RUN_MODE", "local")
+bucket   <- Sys.getenv("S3_BUCKET_NAME", "bmin5100-kianlew")
 region   <- Sys.getenv("AWS_DEFAULT_REGION", "us-east-1")
 
-###############################################################################
-# STEP 3: Make input/output directories configurable
-###############################################################################
-# If no environment variable is set, default to "/data/input" and "/data/output"
+
 input_dir  <- Sys.getenv("INPUT_DIR",  unset = "/data/input")
 output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
-# Create local directories if they don't already exist
 if (!dir.exists(input_dir))  dir.create(input_dir,  recursive = TRUE)
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-###############################################################################
-# STEP 4: Conditionally pull data from S3 into ephemeral storage (Fargate mode)
-###############################################################################
+
 if (tolower(run_mode) == "fargate") {
   message("Running in Fargate mode; pulling input data from S3...")
 
-  # List all the input files your script needs:
   s3_files <- c(
     "NSDUH_2023_Tab.txt",
     "NSDUH_2022_Tab.txt",
@@ -51,15 +39,14 @@ if (tolower(run_mode) == "fargate") {
     "NSDUH_2017_Tab.tsv",
     "NSDUH_2016_Tab.tsv",
     "NSDUH_2015_Tab.tsv"
-    # If they live in a specific "folder" in S3, prefix them, e.g. "myfolder/NSDUH_2023_Tab.txt"
   )
 
   for (f in s3_files) {
-    s3_object <- f
+    s3_object  <- f
     local_path <- file.path(input_dir, f)
     message(sprintf("  Downloading %s -> %s", s3_object, local_path))
 
-    # save_object() downloads the file from S3 to the local file system
+    # save_object() downloads the file from S3 to local
     save_object(
       object = s3_object,
       bucket = bucket,
@@ -71,16 +58,12 @@ if (tolower(run_mode) == "fargate") {
   message("Running in local mode; skipping S3 download.")
 }
 
-###############################################################################
-# STEP 5: Perform your core application logic (Your existing code)
-###############################################################################
+
 message("Beginning data import and processing...")
 
-options(chromote.chrome = "/usr/bin/chromium")  # just in case
+options(chromote.chrome = "/usr/bin/chromium")
 
-#------------------------------------------------------------------------------
-#  Load & filter each dataset (2015 - 2023). We'll read from input_dir.
-#------------------------------------------------------------------------------
+
 
 # 2023
 input_file <- file.path(input_dir, "NSDUH_2023_Tab.txt")
@@ -219,10 +202,6 @@ nsduh_2015_s <- nsduh_2015 |>
 nsduh_2015_ss <- nsduh_2015_s |>
   filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-
-#------------------------------------------------------------------------------
-# Combine 2015-2023 "SS" data frames
-#------------------------------------------------------------------------------
 dataset_list <- list(
   nsduh_2015_ss,
   nsduh_2016_ss,
@@ -244,8 +223,6 @@ dt_list <- mapply(function(df, year) {
 }, dataset_list, years, SIMPLIFY = FALSE)
 
 combined_dt <- rbindlist(dt_list, use.names = FALSE)
-
-# Align column names with 2023 structure
 colnames_2023 <- c(names(nsduh_2023_ss), "YEAR")
 setnames(combined_dt, colnames_2023)
 combined_nsduh_ss <- as.data.frame(combined_dt)
@@ -276,9 +253,7 @@ colnames_2023 <- c(names(nsduh_2023_s), "YEAR")
 setnames(combined_dt, colnames_2023)
 combined_nsduh_s <- as.data.frame(combined_dt)
 
-#------------------------------------------------------------------------------
 # Create an SI variable
-#------------------------------------------------------------------------------
 combined_nsduh_si <- combined_nsduh_s |>
   mutate(
     SI = ifelse(
@@ -301,9 +276,7 @@ combined_nsduh_svhb <- combined_nsduh_ss |>
 export_file <- file.path(output_dir, "combined_nsduh_svhb.csv")
 write.csv(combined_nsduh_svhb, file = export_file, row.names = FALSE)
 
-#------------------------------------------------------------------------------
 # Summarize & create gtsummary table
-#------------------------------------------------------------------------------
 combined_nsduh_svhbd <- combined_nsduh_svhb |>
   mutate(
     CATAG6 = factor(
@@ -379,9 +352,7 @@ summary_table_gt <- summary_table_gt |> tab_options(table.font.size = "small")
 output_html <- file.path(output_dir, "tab1.html")
 gtsave(summary_table_gt, output_html)
 
-#------------------------------------------------------------------------------
 # Create prevalence line graph
-#------------------------------------------------------------------------------
 prevalence_sic <- combined_nsduh_si |>
   group_by(YEAR) |>
   summarize(
@@ -416,9 +387,7 @@ ggsave(
   dpi      = 300
 )
 
-#------------------------------------------------------------------------------
 # Create stacked bar chart
-#------------------------------------------------------------------------------
 variables_of_interest <- c(
   "MHNTENFCV", "MHNTFFLKE", "MHNTPROBS", "MHNTTIME", "MHNTINSCV",
   "MHNTWHER", "MHNTNOHLP", "MHNTCOST", "MHNTHNDL", "MHNTFORCE",
@@ -457,7 +426,7 @@ summary_counts <- data_long |>
   group_by(YEAR, Variable) |>
   summarise(Count = n(), .groups = "drop")
 
-# Reverse the year factor so the stacked bars show 2023 at top, 2015 at bottom (optional)
+# Reverse the year factor so the stacked bars show 2023 at top, 2015 at bottom
 summary_counts$YEAR <- factor(summary_counts$YEAR, levels = sort(unique(summary_counts$YEAR), decreasing = TRUE))
 
 rea_si <- ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
@@ -494,13 +463,10 @@ ggsave(
 
 message("Data processing and visualization complete!")
 
-###############################################################################
-# STEP 6: Conditionally push results (CSV, PNG, HTML) back to S3 (Fargate mode)
-###############################################################################
+
 if (tolower(run_mode) == "fargate") {
   message("Fargate mode; uploading output files to S3...")
 
-  # List the output files you want to push
   files_to_upload <- c(
     "combined_nsduh_svhb.csv",
     "tab1.html",
@@ -510,8 +476,7 @@ if (tolower(run_mode) == "fargate") {
 
   for (f in files_to_upload) {
     local_path <- file.path(output_dir, f)
-    # Optionally define a folder in S3 to store these
-    s3_object <- f
+    s3_object  <- f
     message(sprintf("  Uploading %s -> %s/%s", local_path, bucket, s3_object))
     put_object(
       file   = local_path,
@@ -525,4 +490,4 @@ if (tolower(run_mode) == "fargate") {
   message("Local mode; skipping S3 upload.")
 }
 
-message("Script complete.")
+message("Script complete!")

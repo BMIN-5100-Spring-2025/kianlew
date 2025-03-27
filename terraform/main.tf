@@ -9,6 +9,7 @@ resource "aws_s3_bucket" "project_data_bucket" {
 
 resource "aws_s3_bucket_ownership_controls" "project_data_bucket_ownership_controls" {
   bucket = aws_s3_bucket.project_data_bucket.id
+
   rule {
     object_ownership = "BucketOwnerPreferred"
   }
@@ -54,11 +55,6 @@ resource "aws_cloudwatch_log_group" "lew_kianapp" {
   retention_in_days = 30
 }
 
-import {
-  to = aws_cloudwatch_log_group.lew_kianapp
-  id = "/ecs/lew_kianapp"
-}
-
 
 resource "aws_ecs_task_definition" "lew_kianapp" {
   family                   = "lew_kianapp"
@@ -69,33 +65,43 @@ resource "aws_ecs_task_definition" "lew_kianapp" {
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
-   ephemeral_storage {
-     size_in_gib = 30
-   }
+  ephemeral_storage {
+    size_in_gib = 30
+  }
 
   container_definitions = jsonencode([
     {
       name      = "lew_kianapp"
+      # Replace this with your valid ECR registry + account
       image     = "061051226319.dkr.ecr.us-east-1.amazonaws.com/lew_kianapp:latest"
       cpu       = 2048
       memory    = 14336
       essential = true
 
       environment = [
-        { name = "RUN_MODE",            value = "fargate" },
-        { name = "S3_BUCKET_NAME",      value = "bmin5100-kianlew" },
-        { name = "AWS_DEFAULT_REGION",  value = "us-east-1" },
-        { name = "INPUT_DIR",           value = "/tmp/input" },
-        { name = "OUTPUT_DIR",          value = "/tmp/output" }
+        { name = "RUN_MODE",           value = "fargate" },
+        { name = "S3_BUCKET_NAME",     value = "bmin5100-kianlew" },
+        { name = "AWS_DEFAULT_REGION", value = "us-east-1" },
+        { name = "INPUT_DIR",          value = "/tmp/input" },
+        { name = "OUTPUT_DIR",         value = "/tmp/output" }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-create-group"  = "true"
+          "awslogs-region"        = "us-east-1"
+          "awslogs-group"         = aws_cloudwatch_log_group.lew_kianapp.name
+          "awslogs-stream-prefix" = "lew_kianapp"
+        }
+      }
     }
   ])
 }
 
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "ecs-execution-role"
-
+  name               = "ecs-execution-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_trust.json
 }
 
@@ -115,8 +121,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_ecs_policy" {
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  name = "ecs-task-role"
-
+  name               = "ecs-task-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_trust.json
 }
 
