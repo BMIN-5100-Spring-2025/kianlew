@@ -1,7 +1,5 @@
 
 
-
-
 library(readr)
 library(dplyr)
 library(tidyverse)
@@ -12,22 +10,45 @@ library(gtsummary)
 library(gt)
 library(webshot2)
 library(ggplot2)
+library(aws.ec2metadata)
 
-# Environment variables to control run mode and S3
-run_mode <- Sys.getenv("RUN_MODE", "local")
-bucket   <- Sys.getenv("S3_BUCKET_NAME", "bmin5100-kianlew")
-region   <- Sys.getenv("AWS_DEFAULT_REGION", "us-east-1")
+environment <- Sys.getenv("ENVIRONMENT", "LOCAL")
+bucket      <- Sys.getenv("S3_BUCKET", "local-data-bucket")
+region      <- Sys.getenv("AWS_DEFAULT_REGION", "us-east-1")
+input_dir   <- Sys.getenv("INPUT_DIR", unset = "/data/input")
+output_dir  <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
+message(sprintf("Running with ENVIRONMENT=%s, S3_BUCKET=%s, REGION=%s", environment, bucket, region))
 
-input_dir  <- Sys.getenv("INPUT_DIR",  unset = "/data/input")
-output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
+if (toupper(environment) == "ECS") {
+  message("Fetching ECS metadata credentials...")
+  creds <- tryCatch(
+    {
+      metadata_credentials()
+    },
+    error = function(e) {
+      message(sprintf("Failed to fetch ECS metadata credentials: %s", e$message))
+      return(NULL)
+    }
+  )
+  if (!is.null(creds)) {
+    Sys.setenv("AWS_ACCESS_KEY_ID" = creds$AccessKeyId,
+               "AWS_SECRET_ACCESS_KEY" = creds$SecretAccessKey,
+               "AWS_SESSION_TOKEN" = creds$SessionToken,
+               "AWS_DEFAULT_REGION" = region)
+    message(sprintf("ECS Credentials set: AccessKeyId=%s", creds$AccessKeyId))
+  } else {
+    message("ECS metadata credentials not available; falling back to environment variables")
+  }
+} else {
+  message("Not in ECS environment; relying on default credentials")
+}
 
-if (!dir.exists(input_dir))  dir.create(input_dir,  recursive = TRUE)
+if (!dir.exists(input_dir))  dir.create(input_dir, recursive = TRUE)
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-
-if (tolower(run_mode) == "fargate") {
-  message("Running in Fargate mode; pulling input data from S3...")
+if (toupper(environment) != "LOCAL") {
+  message(sprintf("ENVIRONMENT=%s => Downloading input files from s3://%s/", environment, bucket))
 
   s3_files <- c(
     "NSDUH_2023_Tab.txt",
@@ -44,19 +65,26 @@ if (tolower(run_mode) == "fargate") {
   for (f in s3_files) {
     s3_object  <- f
     local_path <- file.path(input_dir, f)
-    message(sprintf("  Downloading %s -> %s", s3_object, local_path))
-
-    # save_object() downloads the file from S3 to local
-    save_object(
-      object = s3_object,
-      bucket = bucket,
-      file   = local_path,
-      opts   = list(region = region)
+    message(sprintf("  Downloading s3://%s/%s -> %s", bucket, s3_object, local_path))
+    tryCatch(
+      {
+        save_object(
+          object = s3_object,
+          bucket = bucket,
+          file   = local_path,
+          region = region
+        )
+        message(sprintf("  Successfully downloaded %s", f))
+      },
+      error = function(e) {
+        message(sprintf("  Error downloading %s: %s", f, e$message))
+      }
     )
   }
 } else {
-  message("Running in local mode; skipping S3 download.")
+  message("ENVIRONMENT=LOCAL => skipping S3 download.")
 }
+
 
 
 message("Beginning data import and processing...")
@@ -463,9 +491,8 @@ ggsave(
 
 message("Data processing and visualization complete!")
 
-
-if (tolower(run_mode) == "fargate") {
-  message("Fargate mode; uploading output files to S3...")
+if (toupper(environment) != "LOCAL") {
+  message(sprintf("ENVIRONMENT=%s => Uploading results to s3://%s/output/", environment, bucket))
 
   files_to_upload <- c(
     "combined_nsduh_svhb.csv",
@@ -476,8 +503,8 @@ if (tolower(run_mode) == "fargate") {
 
   for (f in files_to_upload) {
     local_path <- file.path(output_dir, f)
-    s3_object  <- f
-    message(sprintf("  Uploading %s -> %s/%s", local_path, bucket, s3_object))
+    s3_object  <- paste0("output/", f)
+    message(sprintf("  Uploading %s -> s3://%s/%s", local_path, bucket, s3_object))
     put_object(
       file   = local_path,
       object = s3_object,
@@ -485,9 +512,10 @@ if (tolower(run_mode) == "fargate") {
       opts   = list(region = region)
     )
   }
-  message("All output files successfully uploaded to S3!")
+  message("All output files uploaded to S3!")
 } else {
-  message("Local mode; skipping S3 upload.")
+  message("ENVIRONMENT=LOCAL => skipping S3 upload.")
 }
 
 message("Script complete!")
+

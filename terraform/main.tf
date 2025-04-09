@@ -34,7 +34,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "project_data_bucket_expiration
   }
 }
 
-
 resource "aws_ecr_repository" "lew_kianapp" {
   name = "lew_kianapp"
 
@@ -79,11 +78,11 @@ resource "aws_ecs_task_definition" "lew_kianapp" {
       essential = true
 
       environment = [
-        { name = "RUN_MODE",           value = "fargate" },
-        { name = "S3_BUCKET_NAME",     value = "bmin5100-kianlew" },
-        { name = "AWS_DEFAULT_REGION", value = "us-east-1" },
-        { name = "INPUT_DIR",          value = "/tmp/input" },
-        { name = "OUTPUT_DIR",         value = "/tmp/output" }
+        { name = "ENVIRONMENT", value = "ECS" },
+        { name = "S3_BUCKET",  value = "bmin5100-kianlew" },
+        { name = "INPUT_DIR",  value = "/data/input" },
+        { name = "OUTPUT_DIR", value = "/data/output" },
+        { name = "AWS_DEFAULT_REGION", value = "us-east-1" }
       ]
 
       logConfiguration = {
@@ -98,7 +97,6 @@ resource "aws_ecs_task_definition" "lew_kianapp" {
     }
   ])
 }
-
 
 resource "aws_iam_role" "ecs_execution_role" {
   name               = "ecs-execution-role"
@@ -125,21 +123,14 @@ resource "aws_iam_role" "ecs_task_role" {
   assume_role_policy = data.aws_iam_policy_document.ecs_task_trust.json
 }
 
-data "aws_s3_bucket" "my_imported_bucket" {
-  bucket = "bmin5100-kianlew"
-}
-
 data "aws_iam_policy_document" "s3_access_for_task" {
   statement {
     actions = [
-      "s3:GetObject",
-      "s3:ListBucket",
-      "s3:PutObject",
-      "s3:DeleteObject",
+      "s3:*"
     ]
     resources = [
-      data.aws_s3_bucket.my_imported_bucket.arn,
-      "${data.aws_s3_bucket.my_imported_bucket.arn}/*",
+      aws_s3_bucket.project_data_bucket.arn,
+      "${aws_s3_bucket.project_data_bucket.arn}/*"
     ]
   }
 }

@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: "kianapp:v0.1"
+    image: "lew_kianapp"
     environment:
       - INPUT_DIR=/data/input
       - OUTPUT_DIR=/data/output

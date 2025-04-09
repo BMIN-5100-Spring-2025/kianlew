@@ -1,6 +1,5 @@
 FROM rocker/verse:4.4.2
 
-# 1) Install system dependencies + tools needed for Google Chrome
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
@@ -8,7 +7,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 2) Download and install Google Chrome .deb package
 RUN wget -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/google-chrome.deb \
@@ -18,8 +16,10 @@ RUN wget -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chr
 
 WORKDIR /usr/src/app
 
-# 3) Install required R packages from CRAN in one command
+RUN Rscript -e "install.packages('devtools', repos='https://cran.rstudio.com/')"
+
 RUN Rscript -e "install.packages(c( \
+    'aws.s3', \
     'webshot2', \
     'pagedown', \
     'readr', \
@@ -30,12 +30,13 @@ RUN Rscript -e "install.packages(c( \
     'gtsummary', \
     'gt', \
     'ggplot2', \
-    'scales', \
-    'aws.s3' \
-  ), repos='https://cran.rstudio.com/')"
+    'scales' \
+  ), repos='https://cran.rstudio.com/')" \
+  && Rscript -e "devtools::install_github('cloudyr/aws.ec2metadata')"
 
-# 4) Copy your R scripts (or entire app) to the container
 COPY app/ app/
+COPY entrypoint.sh /usr/src/app/entrypoint.sh
 
-# 5) Default command: run your R script
-CMD ["Rscript", "app/final_project_template_bmin5100.R"]
+RUN chmod +x /usr/src/app/entrypoint.sh
+
+ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
