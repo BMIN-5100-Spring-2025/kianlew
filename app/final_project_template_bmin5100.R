@@ -1,257 +1,234 @@
 
-input_dir <- Sys.getenv("INPUT_DIR", unset = "/data/input")
-output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 
-# Load necessary libraries
 library(readr)
 library(dplyr)
 library(tidyverse)
 library(tidyr)
+library(aws.s3)
+library(data.table)
+library(gtsummary)
+library(gt)
+library(webshot2)
+library(ggplot2)
+library(aws.ec2metadata)
+
+environment <- Sys.getenv("ENVIRONMENT", "LOCAL")
+bucket      <- Sys.getenv("S3_BUCKET", "local-data-bucket")
+region      <- Sys.getenv("AWS_DEFAULT_REGION", "us-east-1")
+input_dir   <- Sys.getenv("INPUT_DIR", unset = "/data/input")
+output_dir  <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
+
+message(sprintf("Running with ENVIRONMENT=%s, S3_BUCKET=%s, REGION=%s", environment, bucket, region))
+
+if (toupper(environment) == "ECS") {
+  message("Fetching ECS metadata credentials...")
+  creds <- tryCatch(
+    {
+      metadata_credentials()
+    },
+    error = function(e) {
+      message(sprintf("Failed to fetch ECS metadata credentials: %s", e$message))
+      return(NULL)
+    }
+  )
+  if (!is.null(creds)) {
+    Sys.setenv("AWS_ACCESS_KEY_ID" = creds$AccessKeyId,
+               "AWS_SECRET_ACCESS_KEY" = creds$SecretAccessKey,
+               "AWS_SESSION_TOKEN" = creds$SessionToken,
+               "AWS_DEFAULT_REGION" = region)
+    message(sprintf("ECS Credentials set: AccessKeyId=%s", creds$AccessKeyId))
+  } else {
+    message("ECS metadata credentials not available; falling back to environment variables")
+  }
+} else {
+  message("Not in ECS environment; relying on default credentials")
+}
+
+if (!dir.exists(input_dir))  dir.create(input_dir, recursive = TRUE)
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+if (toupper(environment) != "LOCAL") {
+  message(sprintf("ENVIRONMENT=%s => Downloading input files from s3://%s/", environment, bucket))
+
+  s3_files <- c(
+    "NSDUH_2023_Tab.txt",
+    "NSDUH_2022_Tab.txt",
+    "NSDUH_2021_Tab.txt",
+    "NSDUH_2020_Tab.txt",
+    "NSDUH_2019_Tab.txt",
+    "NSDUH_2018_Tab.tsv",
+    "NSDUH_2017_Tab.tsv",
+    "NSDUH_2016_Tab.tsv",
+    "NSDUH_2015_Tab.tsv"
+  )
+
+  for (f in s3_files) {
+    s3_object  <- f
+    local_path <- file.path(input_dir, f)
+    message(sprintf("  Downloading s3://%s/%s -> %s", bucket, s3_object, local_path))
+    tryCatch(
+      {
+        save_object(
+          object = s3_object,
+          bucket = bucket,
+          file   = local_path,
+          region = region
+        )
+        message(sprintf("  Successfully downloaded %s", f))
+      },
+      error = function(e) {
+        message(sprintf("  Error downloading %s: %s", f, e$message))
+      }
+    )
+  }
+} else {
+  message("ENVIRONMENT=LOCAL => skipping S3 download.")
+}
+
+
+
+message("Beginning data import and processing...")
 
 options(chromote.chrome = "/usr/bin/chromium")
 
-# Load the dataset and assign it to nsduh_2023
+
+
+# 2023
 input_file <- file.path(input_dir, "NSDUH_2023_Tab.txt")
 nsduh_2023 <- read_delim(input_file, show_col_types = FALSE)
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2023_s <- nsduh_2023 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR, IRSUIPLANYR, MHNTENFCV, MHNTFFLKE, MHNTPROBS, MHNTTIME, MHNTINSCV, MHNTWHER, MHNTNOHLP, MHNTCOST, MHNTHNDL, MHNTFORCE, MHNTCONSQ, MHNTPRIV, MHNTPTHNK)
-
-
-# Filter rows with suicidal ideation
-
-nsduh_2023_ss <- nsduh_2023_s |>
-  filter(
-    ( IRSUICTHNK == 1 | IRSUIPLANYR == 1 | IRSUITRYYR == 1)
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR,
+    IRSUIPLANYR, MHNTENFCV, MHNTFFLKE, MHNTPROBS, MHNTTIME, MHNTINSCV,
+    MHNTWHER, MHNTNOHLP, MHNTCOST, MHNTHNDL, MHNTFORCE, MHNTCONSQ,
+    MHNTPRIV, MHNTPTHNK
   )
 
+nsduh_2023_ss <- nsduh_2023_s |>
+  filter(IRSUICTHNK == 1 | IRSUITRYYR == 1 | IRSUIPLANYR == 1)
 
-#----------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2022
-
-# Construct the file path for the dataset
+# 2022
 input_file <- file.path(input_dir, "NSDUH_2022_Tab.txt")
 nsduh_2022 <- read_delim(input_file, show_col_types = FALSE)
-
-
-
-# Filter rows where the age group is 18-64 and variables of interest
-
 
 nsduh_2022_s <- nsduh_2022 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR, IRSUIPLANYR, MHNTENFCV, MHNTFFLKE, MHNTPROBS, MHNTTIME, MHNTINSCV, MHNTWHER, MHNTNOHLP, MHNTCOST, MHNTHNDL, MHNTFORCE, MHNTCONSQ, MHNTPRIV, MHNTPTHNK)
-
-
-# Filter rows with suicidal ideation and violent behaviours
-
-nsduh_2022_ss <- nsduh_2022_s |>
-  filter(
-    ( IRSUICTHNK == 1 | IRSUIPLANYR == 1 | IRSUITRYYR == 1)
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR,
+    IRSUIPLANYR, MHNTENFCV, MHNTFFLKE, MHNTPROBS, MHNTTIME, MHNTINSCV,
+    MHNTWHER, MHNTNOHLP, MHNTCOST, MHNTHNDL, MHNTFORCE, MHNTCONSQ,
+    MHNTPRIV, MHNTPTHNK
   )
 
+nsduh_2022_ss <- nsduh_2022_s |>
+  filter(IRSUICTHNK == 1 | IRSUITRYYR == 1 | IRSUIPLANYR == 1)
 
-#----------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2021
-
-
-# Construct the file path for the dataset
+# 2021
 input_file <- file.path(input_dir, "NSDUH_2021_Tab.txt")
 nsduh_2021 <- read_delim(input_file, show_col_types = FALSE)
-
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2021_s <- nsduh_2021 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR, IRSUIPLANYR, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, IRSUICTHNK, IRSUITRYYR, IRSUIPLANYR,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2021_ss <- nsduh_2021_s |>
-  filter(
-    (IRSUICTHNK == 1 | IRSUIPLANYR == 1 | IRSUITRYYR == 1)   )
+  filter(IRSUICTHNK == 1 | IRSUITRYYR == 1 | IRSUIPLANYR == 1)
 
-
-#----------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2020
-
-# Construct the file path for the dataset
+# 2020
 input_file <- file.path(input_dir, "NSDUH_2020_Tab.txt")
 nsduh_2020 <- read_delim(input_file, show_col_types = FALSE)
-
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2020_s <- nsduh_2020 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2020_ss <- nsduh_2020_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-
-#----------------------------------------------------------------------------
-
-
-# Load the dataset and assign it to nsduh_2019
-
-# Construct the file path for the dataset
+# 2019
 input_file <- file.path(input_dir, "NSDUH_2019_Tab.txt")
 nsduh_2019 <- read_delim(input_file, show_col_types = FALSE)
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2019_s <- nsduh_2019 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
-
 nsduh_2019_ss <- nsduh_2019_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-
-#-----------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2018
-
+# 2018
 input_file <- file.path(input_dir, "NSDUH_2018_Tab.tsv")
 nsduh_2018 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
-
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2018_s <- nsduh_2018 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2018_ss <- nsduh_2018_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-
-#-----------------------------------------------------------------------------
-
-
-# Load the dataset and assign it to nsduh_2017
-
+# 2017
 input_file <- file.path(input_dir, "NSDUH_2017_Tab.tsv")
 nsduh_2017 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2017_s <- nsduh_2017 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2017_ss <- nsduh_2017_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-#----------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2016
-
+# 2016
 input_file <- file.path(input_dir, "NSDUH_2016_Tab.tsv")
 nsduh_2016 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2016_s <- nsduh_2016 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2016_ss <- nsduh_2016_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
-
-#------------------------------------------------------------------------------
-
-# Load the dataset and assign it to nsduh_2015
+# 2015
 input_file <- file.path(input_dir, "NSDUH_2015_Tab.tsv")
 nsduh_2015 <- read_delim(input_file, delim = "\t", show_col_types = FALSE)
-
-
-# Filter rows where the age group is 18-64 and variables of interest
 
 nsduh_2015_s <- nsduh_2015 |>
   filter(CATAG6 %in% c(2, 3, 4, 5)) |>
   select(
-    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN, MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
+    CATAG6, IRSEX, NEWRACE2, EDUHIGHCAT, MHSUITHK, MHSUITRY, MHSUIPLN,
+    MHRENUF2, MHRNBRS2, MHRTRAN2, MHRTIME2, MHRNCOV2, MHRWHER2,
     MHRNOHP2, MHRCOST2, MHRHAND2, MHRCMIT2, MHRJOBS2, MHRCFID2, MHRFOUT2
   )
 
-
-# Filter rows with suicidal ideation and violent behaviours
-
 nsduh_2015_ss <- nsduh_2015_s |>
-  filter(
-    MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1
-  )
-
-
-
-
-library(data.table)
-
-# List of datasets from 2015 to 2021
+  filter(MHSUITHK == 1 | MHSUITRY == 1 | MHSUIPLN == 1)
 
 dataset_list <- list(
   nsduh_2015_ss,
@@ -263,12 +240,9 @@ dataset_list <- list(
   nsduh_2021_ss,
   nsduh_2022_ss,
   nsduh_2023_ss
-
 )
 
 years <- 2015:2023
-
-# Convert datasets to data.tables and add YEAR column
 
 dt_list <- mapply(function(df, year) {
   dt <- as.data.table(df)
@@ -276,26 +250,14 @@ dt_list <- mapply(function(df, year) {
   return(dt)
 }, dataset_list, years, SIMPLIFY = FALSE)
 
-# Combine datasets from 2015 to 2023
-
 combined_dt <- rbindlist(dt_list, use.names = FALSE)
-
-# Get column names from the 2023 dataset and add 'YEAR'
-
 colnames_2023 <- c(names(nsduh_2023_ss), "YEAR")
-
-# Assign column names to the combined dataset
-
 setnames(combined_dt, colnames_2023)
-
-# Convert the combined data.table to a data.frame
-
 combined_nsduh_ss <- as.data.frame(combined_dt)
 
 #------------------------------------------------------------------------------
-
- #List of your datasets from 2015 to 2021
-
+# Combine 2015-2023 "S" data frames
+#------------------------------------------------------------------------------
 dataset_list <- list(
   nsduh_2015_s,
   nsduh_2016_s,
@@ -306,65 +268,43 @@ dataset_list <- list(
   nsduh_2021_s,
   nsduh_2022_s,
   nsduh_2023_s
-  )
-years <- 2015:2023
-
-# Convert datasets to data.tables and add YEAR column
+)
 
 dt_list <- mapply(function(df, year) {
   dt <- as.data.table(df)
   dt[, YEAR := year]
-  return(dt) }, dataset_list, years, SIMPLIFY = FALSE)
-
-# Combine datasets
+  return(dt)
+}, dataset_list, years, SIMPLIFY = FALSE)
 
 combined_dt <- rbindlist(dt_list, use.names = FALSE)
-
-# Get column names from the 2023 dataset and add 'YEAR'
-
 colnames_2023 <- c(names(nsduh_2023_s), "YEAR")
-
-# Assign column names to the combined dataset
-
 setnames(combined_dt, colnames_2023)
-
-# Convert the combined data.table to a data.frame
-
 combined_nsduh_s <- as.data.frame(combined_dt)
 
-# Create the SI dataset
+# Create an SI variable
 combined_nsduh_si <- combined_nsduh_s |>
   mutate(
     SI = ifelse(
-      IRSUICTHNK == 1 |
-      IRSUITRYYR == 1 |
-      IRSUIPLANYR == 1,
+      IRSUICTHNK == 1 | IRSUITRYYR == 1 | IRSUIPLANYR == 1,
       1,
       0
     )
   )
 
-# Create the dataset for utilization of mental health services analysis
 combined_nsduh_svhb <- combined_nsduh_ss |>
   mutate(
     SI = ifelse(
-      IRSUICTHNK == 1 |
-      IRSUITRYYR == 1 |
-      IRSUIPLANYR == 1,
+      IRSUICTHNK == 1 | IRSUITRYYR == 1 | IRSUIPLANYR == 1,
       1,
       0
     )
   )
 
-# Export the combined_nsduh_svhb CSV
+# Export CSV
 export_file <- file.path(output_dir, "combined_nsduh_svhb.csv")
 write.csv(combined_nsduh_svhb, file = export_file, row.names = FALSE)
 
-## ----warning=FALSE, message=FALSE----
-
-library(gtsummary)
-library(gt)
-
+# Summarize & create gtsummary table
 combined_nsduh_svhbd <- combined_nsduh_svhb |>
   mutate(
     CATAG6 = factor(
@@ -437,33 +377,22 @@ summary_table_gt <- summary_table |> as_gt()
 summary_table_gt <- summary_table_gt |> cols_width(label ~ px(500))
 summary_table_gt <- summary_table_gt |> tab_options(table.font.size = "small")
 
-summary_table_gt
-
-library(gt)
-library(pagedown)
-library(webshot2)
-
-output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
 output_html <- file.path(output_dir, "tab1.html")
 gtsave(summary_table_gt, output_html)
 
-
-
-
+# Create prevalence line graph
 prevalence_sic <- combined_nsduh_si |>
   group_by(YEAR) |>
   summarize(
-    total_number = n(),
+    total_number   = n(),
     si_occurrences = sum(SI == 1, na.rm = TRUE),
-    Prevalence = (si_occurrences / total_number) * 100
+    Prevalence     = (si_occurrences / total_number) * 100
   ) |>
   select(Year = YEAR, Prevalence)
 
-
-# Create the line graph for SI
 plot_si <- ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
-  geom_line(color = "#ffdd99", linewidth = 1) +
-  geom_point(color = "#ffdd99", size = 2) +
+  geom_line(linewidth = 1, color = "#ffdd99") +
+  geom_point(size = 2, color = "#ffdd99") +
   scale_x_continuous(breaks = 2015:2023) +
   labs(
     title = "Prevalence of Suicidal Ideation",
@@ -475,42 +404,23 @@ plot_si <- ggplot(prevalence_sic, aes(x = Year, y = Prevalence)) +
     strip.text = element_text(face = "bold", size = 12)
   )
 
-
-library(ggplot2)
-
-
-output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
-
-# Define the output file path
 output_file <- file.path(output_dir, "prevalence_si_plot.png")
-
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Export the plot as a PNG image
 ggsave(
   filename = output_file,
-  plot = plot_si,
-  width = 8,
-  height = 6,
-  dpi = 300
+  plot     = plot_si,
+  width    = 8,
+  height   = 6,
+  dpi      = 300
 )
 
-
-
-
-library(scales)
-
-
-
-# List of variables to test
-
+# Create stacked bar chart
 variables_of_interest <- c(
   "MHNTENFCV", "MHNTFFLKE", "MHNTPROBS", "MHNTTIME", "MHNTINSCV",
   "MHNTWHER", "MHNTNOHLP", "MHNTCOST", "MHNTHNDL", "MHNTFORCE",
   "MHNTCONSQ", "MHNTPRIV", "MHNTPTHNK"
 )
-
-# Map of variable codes to descriptive labels
 
 variable_labels <- c(
   MHNTENFCV = "Insurance coverage not enough",
@@ -528,34 +438,24 @@ variable_labels <- c(
   MHNTPTHNK = "Worry about social stigma"
 )
 
-
-# Filter dataset to include SI and the YEAR column
-
 data_filtered <- combined_nsduh_svhb |>
   filter(SI == 1) |>
   select(YEAR, all_of(variables_of_interest))
 
-# Convert the data to long format
-
 data_long <- data_filtered |>
   pivot_longer(
-    cols = -YEAR, # All columns except YEAR
-    names_to = "Variable",
+    cols      = -YEAR,
+    names_to  = "Variable",
     values_to = "Count"
   )
-
-# Count the occurrences
 
 summary_counts <- data_long |>
   filter(Count == 1) |>
   group_by(YEAR, Variable) |>
   summarise(Count = n(), .groups = "drop")
 
-# Reverse the order of the years within each bar
-
+# Reverse the year factor so the stacked bars show 2023 at top, 2015 at bottom
 summary_counts$YEAR <- factor(summary_counts$YEAR, levels = sort(unique(summary_counts$YEAR), decreasing = TRUE))
-
-# Create the horizontal bar chart
 
 rea_si <- ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
   geom_bar(stat = "identity", position = "stack") +
@@ -566,41 +466,56 @@ rea_si <- ggplot(summary_counts, aes(x = Variable, y = Count, fill = YEAR)) +
     fill = "Year"
   ) +
   scale_fill_brewer(palette = "Set1") +
-  scale_y_continuous(
-    breaks = seq(0, 6000, by = 500),
-    labels = seq(0, 6000, by = 500)
-  ) +
+  scale_y_continuous(breaks = seq(0, 6000, by = 500)) +
   scale_x_discrete(labels = variable_labels) +
   theme_bw() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "left",
-    # Key: make sure title is positioned at the plot level and left-aligned
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    legend.position   = "left",
+    plot.title        = element_text(hjust = 0),
     plot.title.position = "plot",
-    plot.title = element_text(hjust = 0),
-    # Optionally reduce left margin if needed:
-    plot.margin = margin(t = 10, r = 10, b = 10, l = 5)
+    plot.margin       = margin(t = 10, r = 10, b = 10, l = 5)
   ) +
   coord_flip()
 
-
-library(ggplot2)
-
-
-output_dir <- Sys.getenv("OUTPUT_DIR", unset = "/data/output")
-
-# Define the output file path
 output_file <- file.path(output_dir, "rea_si_plot.png")
-
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Export the plot as a PNG image
 ggsave(
   filename = output_file,
-  plot = rea_si,
-  width = 8,
-  height = 6,
-  dpi = 300
+  plot     = rea_si,
+  width    = 8,
+  height   = 6,
+  dpi      = 300
 )
 
+message("Data processing and visualization complete!")
+
+if (toupper(environment) != "LOCAL") {
+  message(sprintf("ENVIRONMENT=%s => Uploading results to s3://%s/output/", environment, bucket))
+
+  files_to_upload <- c(
+    "combined_nsduh_svhb.csv",
+    "tab1.html",
+    "prevalence_si_plot.png",
+    "rea_si_plot.png"
+  )
+
+  for (f in files_to_upload) {
+    local_path <- file.path(output_dir, f)
+    s3_object  <- paste0("output/", f)
+    message(sprintf("  Uploading %s -> s3://%s/%s", local_path, bucket, s3_object))
+    put_object(
+      file   = local_path,
+      object = s3_object,
+      bucket = bucket,
+      opts   = list(region = region)
+    )
+  }
+  message("All output files uploaded to S3!")
+} else {
+  message("ENVIRONMENT=LOCAL => skipping S3 upload.")
+}
+
+message("Script complete!")
 
